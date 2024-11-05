@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'dart:math';
 import '../widgets/dice_widget.dart';
 import '../widgets/game_board.dart';
-
+import '../models/player.dart';
+import './score_screen.dart';
 class GameScreen extends StatefulWidget {
   @override
   _GameScreenState createState() => _GameScreenState();
@@ -16,13 +17,20 @@ class _GameScreenState extends State<GameScreen> {
   bool diceRolled = false; // Indicateur de lancer de dés
   bool isFirstMove = true;
   bool moveUsed = false; // Empêche plusieurs coups sur un même lancer
-
+  List<bool> zonesVisited = [];
+  List<bool> seriesVisited = [];
   // Compteurs pour chaque opération
   int additionCount = 0;
   int subtractionCount = 0;
   int multiplicationCount = 0;
   int maxCount = 0;
   int minCount = 0;
+  int score = 0;
+
+   List<Player> players = [
+  Player(id: "1", name: "Joueur 1", score: 0),
+  Player(id: "2", name: "Joueur 2", score: 0),
+];
 
   @override
   void initState() {
@@ -45,7 +53,20 @@ class _GameScreenState extends State<GameScreen> {
       moveUsed = false;  // Réinitialiser le statut du mouvement après le lancer
     });
   }
+  void endGame() {
+    // Calculer les scores et mettre à jour les objets Player
+    players[0].score = score; // Exemple d’attribution d'un score au joueur 1
+    players[1].score = score ~/ 2; // Exemple pour le joueur 2
 
+    // Naviguer vers l'écran des scores et passer la liste des joueurs
+   
+  Navigator.pushNamed(
+    context,
+    '/score',
+    arguments: {'players': players, 'roomCode': ModalRoute.of(context)?.settings.arguments},
+  );
+    
+  }
  void onCircleTap(int index) async {
   // Vérifier si les dés ont été lancés
   if (!diceRolled) {
@@ -182,8 +203,122 @@ class _GameScreenState extends State<GameScreen> {
       board[index] = result;
       diceRolled = false;  // Désactiver les dés pour éviter un autre coup sans relancer
       moveUsed = true;     // Empêcher un autre coup jusqu'à ce que les dés soient relancés
-    });
+     calculateScore();});
   }
+}
+  void calculateScore() {
+    // Détecter et compter les zones
+    score = 0;
+    score += calculateZones();
+    score += calculateSeries();
+     score -= calculateOrphanPenalty();
+    setState(() {}); // Mettre à jour l'interface pour afficher le score
+  }
+
+int calculateZones() {
+  int zoneScore = 0;
+  final List<bool> zonesVisited = List.filled(board.length, false);
+
+  for (int i = 0; i < board.length; i++) {
+    if (board[i] != null && !zonesVisited[i]) {
+      // Obtenir tous les éléments adjacents égaux pour former une zone
+      List<int> zone = getConnectedValues(i, board[i]!, zonesVisited);
+      if (zone.length > 1) {
+        int zoneValue = board[i]!;
+        zoneScore += zoneValue + (zone.length - 1); // Score de la zone
+      }
+    }
+  }
+  return zoneScore;
+}
+
+List<int> getConnectedValues(int index, int value, List<bool> zonesVisited) {
+  final rows = 4;
+  final cols = 4;
+  final List<int> zone = [];
+  final List<int> directions = [-1, 1, -cols, cols]; // Gauche, Droite, Haut, Bas
+
+  final queue = [index];
+  while (queue.isNotEmpty) {
+    int current = queue.removeLast();
+    if (zonesVisited[current] || board[current] != value) continue;
+    zonesVisited[current] = true;
+    zone.add(current);
+
+    for (var dir in directions) {
+      int adj = current + dir;
+      bool inBounds = adj >= 0 && adj < board.length;
+      bool sameRow = (current ~/ cols) == (adj ~/ cols);
+      if (inBounds && board[adj] == value && (sameRow || dir.abs() == cols)) {
+        queue.add(adj);
+      }
+    }
+  }
+  return zone;
+}
+
+int calculateSeries() {
+  int seriesScore = 0;
+  final List<bool> seriesVisited = List.filled(board.length, false);
+
+  for (int i = 0; i < board.length; i++) {
+    if (board[i] != null && !seriesVisited[i]) {
+      // Rechercher des séries décroissantes
+      List<int> series = getDecreasingSeries(i, seriesVisited);
+      if (series.length > 1) {
+        int seriesValue = series.map((index) => board[index]!).reduce(max);
+        seriesScore += seriesValue + (series.length - 1); // Score de la série
+      }
+    }
+  }
+  return seriesScore;
+}
+
+List<int> getDecreasingSeries(int index, List<bool> seriesVisited) {
+  final rows = 4;
+  final cols = 4;
+  final List<int> series = [];
+  final List<int> directions = [-1, 1, -cols, cols]; // Gauche, Droite, Haut, Bas
+  int currentValue = board[index]!;
+
+  final queue = [index];
+  while (queue.isNotEmpty) {
+    int current = queue.removeLast();
+    if (seriesVisited[current] || board[current] == null) continue;
+    if (series.isNotEmpty && board[current]! >= currentValue) continue;
+
+    seriesVisited[current] = true;
+    series.add(current);
+    currentValue = board[current]!;
+
+    for (var dir in directions) {
+      int adj = current + dir;
+      bool inBounds = adj >= 0 && adj < board.length;
+      bool sameRow = (current ~/ cols) == (adj ~/ cols);
+      if (inBounds && board[adj] != null && board[adj]! < currentValue && (sameRow || dir.abs() == cols)) {
+        queue.add(adj);
+      }
+    }
+  }
+  return series;
+}
+
+int calculateOrphanPenalty() {
+  int orphanPenalty = 0;
+
+  for (int i = 0; i < board.length; i++) {
+    // Vérifier si la case n'appartient ni à une zone ni à une série
+    if (board[i] != null && !isPartOfZoneOrSeries(i)) {
+      orphanPenalty += 3; // Appliquer la pénalité pour chaque case orpheline
+    }
+  }
+  
+  return orphanPenalty;
+}
+
+bool isPartOfZoneOrSeries(int index) {
+  // Vérifie si une case appartient à une zone ou une série
+  return zonesVisited[index] || seriesVisited[index];
 }
 
   @override
@@ -197,6 +332,11 @@ class _GameScreenState extends State<GameScreen> {
       ),
       body: Column(
         children: [
+          SizedBox(height: 20),
+             Text(
+            'Score actuel : $score', // Affichage du score
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          ),
           SizedBox(height: 20),
           Text(
             'Joueurs connectés : $playerCount/2',
@@ -217,16 +357,20 @@ class _GameScreenState extends State<GameScreen> {
               ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(10.0),
-            child: ElevatedButton(
-              onPressed: playerCount == 2 ? () {
-                // Naviguer vers l'écran de score pour terminer la partie
-                Navigator.pushNamed(context, '/score', arguments: roomCode);
-              } : null,
-              child: Text('Terminer la Partie'),
-            ),
-          ),
+        Padding(
+  padding: const EdgeInsets.all(10.0),
+  child: ElevatedButton(
+    onPressed: playerCount == 2 ? () {
+      Navigator.pushNamed(
+        context,
+        '/score',
+        arguments: {'players': players, 'roomCode': ModalRoute.of(context)?.settings.arguments},
+      );
+    } : null,
+    child: Text('Terminer la Partie'),
+  ),
+),
+
         ],
       ),
     );

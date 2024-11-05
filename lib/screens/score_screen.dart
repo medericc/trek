@@ -3,12 +3,14 @@ import '../models/player.dart';
 import '../widgets/score_display.dart';
 
 class ScoreScreen extends StatelessWidget {
-  final List<Player> players;
-
-  ScoreScreen({required this.players});
+  const ScoreScreen({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    // Récupérer les arguments passés via Navigator
+    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    final List<Player> players = args['players'] as List<Player>;
+
     return Scaffold(
       appBar: AppBar(
         title: Text('Résultats de la Partie'),
@@ -24,12 +26,11 @@ class ScoreScreen extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             SizedBox(height: 20),
-            ScoreDisplay(players: players), // Affiche les scores de chaque joueur
+            ScoreDisplay(players: players),
             SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
-                // Retour à l'écran d'accueil
-                Navigator.popUntil(context, ModalRoute.withName('/home'));
+                Navigator.popUntil(context, ModalRoute.withName('/'));
               },
               child: Text('Retour à l\'Accueil'),
             ),
