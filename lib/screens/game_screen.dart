@@ -300,19 +300,19 @@ int calculateSeries() {
 }
 
 List<int> getDecreasingSeries(int index, List<bool> seriesVisited) {
-  final rows = 4;
+   final rows = 4;
   final cols = 4;
   final List<int> series = [];
-  final List<int> directions = [-1, 1, -cols, cols]; // Gauche, Droite, Haut, Bas
+  final List<int> directions = [-1, 1, -cols, cols]; // Left, Right, Up, Down
   int currentValue = board[index]!;
 
   final queue = [index];
   while (queue.isNotEmpty) {
     int current = queue.removeLast();
     if (seriesVisited[current] || board[current] == null) continue;
-    
-    // Si on trouve un doublon ou une valeur supérieure, on stoppe la série
-    if (series.isNotEmpty && board[current]! >= currentValue) break;
+
+    // Ensure each new cell in the series has a value exactly 1 more or 1 less than the previous cell
+    if (series.isNotEmpty && (board[current]!.abs() - currentValue).abs() != 1) break;
 
     seriesVisited[current] = true;
     series.add(current);
@@ -322,13 +322,14 @@ List<int> getDecreasingSeries(int index, List<bool> seriesVisited) {
       int adj = current + dir;
       bool inBounds = adj >= 0 && adj < board.length;
       bool sameRow = (current ~/ cols) == (adj ~/ cols);
-      
-      // Ajouter seulement les cases qui respectent la condition décroissante
-      if (inBounds && board[adj] != null && board[adj]! < currentValue && (sameRow || dir.abs() == cols)) {
+
+      // Add adjacent cells with values differing by exactly 1, maintaining row and column boundaries
+      if (inBounds && board[adj] != null && (board[adj]! - currentValue).abs() == 1 && (sameRow || dir.abs() == cols)) {
         queue.add(adj);
       }
     }
   }
+  print('Adjacent series for value $board[index]: $series');
   return series;
 }
 
