@@ -53,20 +53,27 @@ class _GameScreenState extends State<GameScreen> {
       moveUsed = false;  // Réinitialiser le statut du mouvement après le lancer
     });
   }
-  void endGame() {
-    // Calculer les scores et mettre à jour les objets Player
-    players[0].score = score; // Exemple d’attribution d'un score au joueur 1
-    players[1].score = score ~/ 2; // Exemple pour le joueur 2
+void endGame() {
+  // Vérifie d'abord que la liste n'est pas vide
+  if (players.isNotEmpty) {
+    players[0].score = score;
+    players[1].score = score ~/ 2;
+  } else {
+    print("Erreur : liste de joueurs vide.");
+  }
 
-    // Naviguer vers l'écran des scores et passer la liste des joueurs
-   
+  // Vérifie les scores avant la navigation
+  print("Score Joueur 1: ${players.isNotEmpty ? players[0].score : 'Pas de joueur'}");
+  print("Score Joueur 2: ${players.length > 1 ? players[1].score : 'Pas de joueur'}");
+
   Navigator.pushNamed(
     context,
     '/score',
     arguments: {'players': players, 'roomCode': ModalRoute.of(context)?.settings.arguments},
   );
-    
-  }
+}
+
+
  void onCircleTap(int index) async {
   // Vérifier si les dés ont été lancés
   if (!diceRolled) {
@@ -206,14 +213,16 @@ class _GameScreenState extends State<GameScreen> {
      calculateScore();});
   }
 }
-  void calculateScore() {
-    // Détecter et compter les zones
-    score = 0;
-    score += calculateZones();
-    score += calculateSeries();
-     score -= calculateOrphanPenalty();
-    setState(() {}); // Mettre à jour l'interface pour afficher le score
-  }
+int calculateScore() {
+  zonesVisited = List.filled(board.length, false);
+  seriesVisited = List.filled(board.length, false);
+  int totalScore = calculateZones() + calculateSeries() - calculateOrphanPenalty();
+  setState(() {
+    score = totalScore;
+  });
+  return totalScore;
+}
+
 
 int calculateZones() {
   int zoneScore = 0;
@@ -360,15 +369,24 @@ bool isPartOfZoneOrSeries(int index) {
         Padding(
   padding: const EdgeInsets.all(10.0),
   child: ElevatedButton(
-    onPressed: playerCount == 2 ? () {
-      Navigator.pushNamed(
-        context,
-        '/score',
-        arguments: {'players': players, 'roomCode': ModalRoute.of(context)?.settings.arguments},
-      );
-    } : null,
-    child: Text('Terminer la Partie'),
-  ),
+  onPressed: playerCount == 2 ? () {
+    // Mettre à jour les scores avant de naviguer
+    players[0].score = calculateScore(); // ou score calculé pour Joueur 1
+    players[1].score = score ~/ 2;       // ou un autre calcul pour Joueur 2
+    
+    Navigator.pushNamed(
+      context,
+      '/score',
+      arguments: {
+        'players': players, 
+        'roomCode': roomCode
+      },
+    );
+  } : null,
+  child: Text('Terminer la Partie'),
+),
+
+
 ),
 
         ],
