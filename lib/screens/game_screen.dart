@@ -216,17 +216,28 @@ void endGame() {
 int calculateScore() {
   zonesVisited = List.filled(board.length, false);
   seriesVisited = List.filled(board.length, false);
-  int totalScore = calculateZones() + calculateSeries() - calculateOrphanPenalty();
+  
+  int zoneScore = calculateZones();
+  print('Score des zones: $zoneScore');
+
+  int seriesScore = calculateSeries();
+  print('Score des séries: $seriesScore');
+
+  int orphanPenalty = calculateOrphanPenalty();
+  print('Pénalité pour cases orphelines: $orphanPenalty');
+
+  int totalScore = zoneScore + seriesScore - orphanPenalty;
+  
   setState(() {
     score = totalScore;
   });
+  print('Score total après calcul: $totalScore');
   return totalScore;
 }
 
 
 int calculateZones() {
   int zoneScore = 0;
-  final List<bool> zonesVisited = List.filled(board.length, false);
 
   for (int i = 0; i < board.length; i++) {
     if (board[i] != null && !zonesVisited[i]) {
@@ -234,10 +245,13 @@ int calculateZones() {
       List<int> zone = getConnectedValues(i, board[i]!, zonesVisited);
       if (zone.length > 1) {
         int zoneValue = board[i]!;
-        zoneScore += zoneValue + (zone.length - 1); // Score de la zone
+        int scoreZone = zoneValue + (zone.length - 1);
+        zoneScore += scoreZone;
+        print('Zone trouvée avec valeur $zoneValue et taille ${zone.length} - Score de cette zone: $scoreZone');
       }
     }
   }
+  print('Score total des zones: $zoneScore');
   return zoneScore;
 }
 
@@ -263,12 +277,11 @@ List<int> getConnectedValues(int index, int value, List<bool> zonesVisited) {
       }
     }
   }
+  print('Zone connectée pour la valeur $value : $zone');
   return zone;
 }
-
 int calculateSeries() {
   int seriesScore = 0;
-  final List<bool> seriesVisited = List.filled(board.length, false);
 
   for (int i = 0; i < board.length; i++) {
     if (board[i] != null && !seriesVisited[i]) {
@@ -276,10 +289,13 @@ int calculateSeries() {
       List<int> series = getDecreasingSeries(i, seriesVisited);
       if (series.length > 1) {
         int seriesValue = series.map((index) => board[index]!).reduce(max);
-        seriesScore += seriesValue + (series.length - 1); // Score de la série
+        int scoreSeries = seriesValue + (series.length - 1);
+        seriesScore += scoreSeries;
+        print('Série trouvée avec valeur max $seriesValue et taille ${series.length} - Score de cette série: $scoreSeries');
       }
     }
   }
+  print('Score total des séries: $seriesScore');
   return seriesScore;
 }
 
@@ -294,7 +310,9 @@ List<int> getDecreasingSeries(int index, List<bool> seriesVisited) {
   while (queue.isNotEmpty) {
     int current = queue.removeLast();
     if (seriesVisited[current] || board[current] == null) continue;
-    if (series.isNotEmpty && board[current]! >= currentValue) continue;
+    
+    // Si on trouve un doublon ou une valeur supérieure, on stoppe la série
+    if (series.isNotEmpty && board[current]! >= currentValue) break;
 
     seriesVisited[current] = true;
     series.add(current);
@@ -304,6 +322,8 @@ List<int> getDecreasingSeries(int index, List<bool> seriesVisited) {
       int adj = current + dir;
       bool inBounds = adj >= 0 && adj < board.length;
       bool sameRow = (current ~/ cols) == (adj ~/ cols);
+      
+      // Ajouter seulement les cases qui respectent la condition décroissante
       if (inBounds && board[adj] != null && board[adj]! < currentValue && (sameRow || dir.abs() == cols)) {
         queue.add(adj);
       }
@@ -318,16 +338,19 @@ int calculateOrphanPenalty() {
   for (int i = 0; i < board.length; i++) {
     // Vérifier si la case n'appartient ni à une zone ni à une série
     if (board[i] != null && !isPartOfZoneOrSeries(i)) {
-      orphanPenalty += 3; // Appliquer la pénalité pour chaque case orpheline
+      orphanPenalty += 3;
+      print('Pénalité appliquée à la case $i avec valeur ${board[i]}');
     }
   }
   
+  print('Pénalité totale pour cases orphelines: $orphanPenalty');
   return orphanPenalty;
 }
-
 bool isPartOfZoneOrSeries(int index) {
   // Vérifie si une case appartient à une zone ou une série
-  return zonesVisited[index] || seriesVisited[index];
+  bool isPart = zonesVisited[index] || seriesVisited[index];
+  print('Case $index est${isPart ? "" : " non"} incluse dans une zone ou série');
+  return isPart;
 }
 
   @override
