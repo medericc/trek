@@ -300,11 +300,11 @@ int calculateSeries() {
 }
 
 List<int> getDecreasingSeries(int index, List<bool> seriesVisited) {
-   final rows = 4;
+  final rows = 4;
   final cols = 4;
   final List<int> series = [];
   final List<int> directions = [-1, 1, -cols, cols]; // Left, Right, Up, Down
-  int currentValue = board[index]!;
+  int currentValue = board[index]!; // initial value is guaranteed not to be null
 
   final queue = [index];
   while (queue.isNotEmpty) {
@@ -312,7 +312,7 @@ List<int> getDecreasingSeries(int index, List<bool> seriesVisited) {
     if (seriesVisited[current] || board[current] == null) continue;
 
     // Ensure each new cell in the series has a value exactly 1 more or 1 less than the previous cell
-    if (series.isNotEmpty && (board[current]!.abs() - currentValue).abs() != 1) break;
+    if (series.isNotEmpty && (board[current]! - currentValue).abs() != 1) break;
 
     seriesVisited[current] = true;
     series.add(current);
@@ -329,7 +329,7 @@ List<int> getDecreasingSeries(int index, List<bool> seriesVisited) {
       }
     }
   }
-  print('Adjacent series for value $board[index]: $series');
+  print('Adjacent series for value ${board[index]}: $series');
   return series;
 }
 
