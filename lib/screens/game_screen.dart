@@ -44,15 +44,22 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void rollDice() {
-    setState(() {
-      // Lancer les dés en générant des valeurs aléatoires entre 1 et 6
-      final random = Random();
-      de1 = random.nextInt(6) + 1;
-      de2 = random.nextInt(6) + 1;
-      diceRolled = true; // Dés ont été lancés
-      moveUsed = false;  // Réinitialiser le statut du mouvement après le lancer
-    });
+  if (!moveUsed && diceRolled) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Vous devez jouer ce tour avant de relancer les dés !'))
+    );
+    return;
   }
+
+  setState(() {
+    // Lancer les dés en générant des valeurs aléatoires entre 1 et 6
+    final random = Random();
+    de1 = random.nextInt(6) + 1;
+    de2 = random.nextInt(6) + 1;
+    diceRolled = true; // Dés ont été lancés
+    moveUsed = false;  // Réinitialiser le statut du mouvement après le lancer
+  });
+}
 void endGame() {
   // Vérifie d'abord que la liste n'est pas vide
   if (players.isNotEmpty) {
@@ -436,17 +443,17 @@ bool isSingleTileZone(int index) {
       ),
       body: Column(
         children: [
-          SizedBox(height: 20),
+          SizedBox(height: 10),
              Text(
             'Score actuel : $score', // Affichage du score
             style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
-          SizedBox(height: 20),
+          SizedBox(height: 10),
           Text(
             'Joueurs connectés : $playerCount/2',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
-          SizedBox(height: 20),
+          SizedBox(height: 10),
           DiceWidget(
             de1: de1,
             de2: de2,
