@@ -241,19 +241,28 @@ int calculateZones() {
 
   for (int i = 0; i < board.length; i++) {
     if (board[i] != null && !zonesVisited[i]) {
-      // Obtenir tous les éléments adjacents égaux pour former une zone
+      // Obtenir la zone connectée pour cette case
       List<int> zone = getConnectedValues(i, board[i]!, zonesVisited);
+
       if (zone.length > 1) {
+        // Marquer la zone comme valide uniquement si elle a plus d'une case
         int zoneValue = board[i]!;
         int scoreZone = zoneValue + (zone.length - 1);
         zoneScore += scoreZone;
         print('Zone trouvée avec valeur $zoneValue et taille ${zone.length} - Score de cette zone: $scoreZone');
+      } else {
+        // Si la zone est une case seule, la démarquer pour qu'elle puisse être comptée comme orpheline
+        zonesVisited[i] = false;
       }
     }
   }
   print('Score total des zones: $zoneScore');
   return zoneScore;
 }
+
+
+
+
 
 List<int> getConnectedValues(int index, int value, List<bool> zonesVisited) {
   final rows = 4;
@@ -286,7 +295,7 @@ int calculateSeries() {
   for (int i = 0; i < board.length; i++) {
     if (board[i] != null && !seriesVisited[i]) {
       // Rechercher des séries décroissantes
-      List<int> series = getDecreasingSeries(i, seriesVisited);
+      List<int> series = getSeries(i, seriesVisited);
       if (series.length > 1) {
         int seriesValue = series.map((index) => board[index]!).reduce(max);
         int scoreSeries = seriesValue + (series.length - 1);
@@ -299,19 +308,18 @@ int calculateSeries() {
   return seriesScore;
 }
 
-List<int> getDecreasingSeries(int index, List<bool> seriesVisited) {
-  final rows = 4;
+List<int> getSeries(int index, List<bool> seriesVisited) {
+ final rows = 4;
   final cols = 4;
   final List<int> series = [];
   final List<int> directions = [-1, 1, -cols, cols]; // Left, Right, Up, Down
-  int currentValue = board[index]!; // initial value is guaranteed not to be null
-
+  int currentValue = board[index]!;
   final queue = [index];
+
   while (queue.isNotEmpty) {
     int current = queue.removeLast();
     if (seriesVisited[current] || board[current] == null) continue;
 
-    // Ensure each new cell in the series has a value exactly 1 more or 1 less than the previous cell
     if (series.isNotEmpty && (board[current]! - currentValue).abs() != 1) break;
 
     seriesVisited[current] = true;
@@ -323,7 +331,6 @@ List<int> getDecreasingSeries(int index, List<bool> seriesVisited) {
       bool inBounds = adj >= 0 && adj < board.length;
       bool sameRow = (current ~/ cols) == (adj ~/ cols);
 
-      // Add adjacent cells with values differing by exactly 1, maintaining row and column boundaries
       if (inBounds && board[adj] != null && (board[adj]! - currentValue).abs() == 1 && (sameRow || dir.abs() == cols)) {
         queue.add(adj);
       }
@@ -337,7 +344,6 @@ int calculateOrphanPenalty() {
   int orphanPenalty = 0;
 
   for (int i = 0; i < board.length; i++) {
-    // Vérifier si la case n'appartient ni à une zone ni à une série
     if (board[i] != null && !isPartOfZoneOrSeries(i)) {
       orphanPenalty += 3;
       print('Pénalité appliquée à la case $i avec valeur ${board[i]}');
@@ -347,12 +353,47 @@ int calculateOrphanPenalty() {
   print('Pénalité totale pour cases orphelines: $orphanPenalty');
   return orphanPenalty;
 }
+
 bool isPartOfZoneOrSeries(int index) {
-  // Vérifie si une case appartient à une zone ou une série
-  bool isPart = zonesVisited[index] || seriesVisited[index];
-  print('Case $index est${isPart ? "" : " non"} incluse dans une zone ou série');
+  bool isInZone = zonesVisited[index] && !isSingleTileZone(index);
+  bool isInSeries = seriesVisited[index] && !isSingleTileSeries(index);
+  
+  bool isPart = isInZone || isInSeries;
+  
+  print('Case $index : Est seule en zone = ${isSingleTileZone(index)}, Est seule en série = ${isSingleTileSeries(index)}, Incluse = $isPart');
+  
   return isPart;
 }
+
+
+
+bool isSingleTileSeries(int index) {
+  List<bool> tempVisited = List.from(seriesVisited);
+  List<int> series = getSeries(index, tempVisited);
+  
+  bool isSingle = series.length == 0;
+  print('Case $index - est seule dans la série ? $isSingle');
+  
+  return isSingle;
+}
+
+
+
+
+// Vérifie si une case est seule dans sa "zone"
+bool isSingleTileZone(int index) {
+  // Crée une copie temporaire de `zonesVisited` pour ne pas modifier l'état existant
+  List<bool> tempVisited = List.from(zonesVisited);
+  
+  // Récupère la "zone" connectée pour cet index
+  List<int> zone = getConnectedValues(index, board[index]!, tempVisited);
+  
+  // Si la taille de la "zone" est 1, cela signifie que cette case est seule
+  return zone.length == 1;
+}
+
+
+
 
   @override
   Widget build(BuildContext context) {
