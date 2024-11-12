@@ -340,18 +340,14 @@ List<int> getSeries(int index, List<bool> seriesVisited) {
 
   while (queue.isNotEmpty) {
     int current = queue.removeLast();
-    // Skip if already visited or if it's an invalid tile
     if (seriesVisited[current] || board[current] == null) continue;
 
-    // Check if this tile can be part of the series (value difference must be 1)
     if (series.isNotEmpty && (board[current]! - currentValue).abs() != 1) break;
 
-    // Mark the tile as visited and add to series
     seriesVisited[current] = true;
     series.add(current);
-    currentValue = board[current]!;  // Update the value for the next tile
-
-    // Explore adjacent tiles in the 4 possible directions
+    currentValue = board[current]!;
+    
     for (var dir in directions) {
       int adj = current + dir;
       bool inBounds = adj >= 0 && adj < board.length;
@@ -363,7 +359,6 @@ List<int> getSeries(int index, List<bool> seriesVisited) {
     }
   }
 
-  // Ensure the series has at least the starting tile
   if (series.isEmpty) {
     series.add(index);
   }
@@ -374,21 +369,17 @@ List<int> getSeries(int index, List<bool> seriesVisited) {
 
 
 bool isPartOfZoneOrSeries(int index) {
-  // Vérifier si la case fait partie d'une zone
   bool isInZone = zonesVisited[index] && !isSingleTileZone(index);
 
-  // Vérifier si la case fait partie d'une série
   bool isInSeries = seriesVisited[index] && !isSingleTileSeries(index);
 
-  // Si la série est plus grande que 1, la case ne peut pas être orpheline
   if (!isInSeries) {
     List<int> series = getSeries(index, seriesVisited);
     if (series.length > 1) {
-      // Si la série contient plusieurs cases, on la marque comme visitée
       for (var idx in series) {
-        seriesVisited[idx] = true;  // Marquer toute la série comme visitée
+        seriesVisited[idx] = true;
       }
-      isInSeries = true;  // La case fait bien partie d'une série
+      isInSeries = true;
     }
   }
 
@@ -398,27 +389,24 @@ bool isPartOfZoneOrSeries(int index) {
 
   return isPart;
 }
-
-
 bool isSingleTileSeries(int index) {
   List<bool> tempVisited = List.from(seriesVisited);
-  List<int> series = getSeries(index, tempVisited);
-
-  // Si la série contient plus d'une case, on la marque comme visitée
-  if (series.length > 1) {
-    // Marquer toute la série comme visitée
-    for (var idx in series) {
-      seriesVisited[idx] = true;
-    }
-    print('Case $index - Est seule dans la série ? false (fait partie d\'une série de taille ${series.length})');
+  int seriesScore = getSeriesScore(index, tempVisited);
+  
+  // Vérifie si la valeur de la case est sous le score de la série
+  if (board[index]! <= seriesScore) {
+    print('Case $index - Est seule dans la série ? false (fait partie d\'une série avec score $seriesScore)');
     return false;
   }
 
   print('Case $index - Est seule dans la série ? true');
   return true;
 }
-
-
+int getSeriesScore(int index, List<bool> seriesVisited) {
+  final series = getSeries(index, seriesVisited);
+  int seriesMaxValue = series.map((i) => board[i]!).reduce((a, b) => a > b ? a : b);
+  return seriesMaxValue + series.length - 1;  // Calcul du score basé sur la valeur max et la taille de la série
+}
 
 
 
