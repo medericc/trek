@@ -4,22 +4,27 @@ import '../widgets/dice_widget.dart';
 import '../widgets/game_board.dart';
 import '../models/player.dart';
 import './score_screen.dart';
+import '../models/websocket.dart';
+
 class GameScreen extends StatefulWidget {
   @override
   _GameScreenState createState() => _GameScreenState();
 }
 
 class _GameScreenState extends State<GameScreen> {
-  final List<int?> board = List.filled(16, null); // Plateau de jeu 4x4
+  late WebSocketClient _webSocketClient;
+
+  final List<int?> board = List.filled(16, null); 
+    bool isCreator = true; // Par défaut, supposons que c'est le créateur; à ajuster selon votre logique
   int de1 = 0;
   int de2 = 0;
-  int playerCount = 1; // Nombre de joueurs connectés (initialement 1 pour le créateur)
-  bool diceRolled = false; // Indicateur de lancer de dés
+  int playerCount = 1; 
+  bool diceRolled = false; 
   bool isFirstMove = true;
-  bool moveUsed = false; // Empêche plusieurs coups sur un même lancer
+  bool moveUsed = false; 
   List<bool> zonesVisited = [];
   List<bool> seriesVisited = [];
-  // Compteurs pour chaque opération
+ 
   int additionCount = 0;
   int subtractionCount = 0;
   int multiplicationCount = 0;
@@ -32,16 +37,17 @@ class _GameScreenState extends State<GameScreen> {
   Player(id: "2", name: "Joueur 2", score: 0),
 ];
 
-  @override
-  void initState() {
-    super.initState();
-    // Simuler l'ajout d'un autre joueur après un délai pour tester (à remplacer par la vraie logique réseau)
-    Future.delayed(Duration(seconds: 2), () {
-      setState(() {
-        playerCount = 2; // Simule un 2ème joueur qui rejoint la salle
-      });
-    });
-  }
+@override
+void initState() {
+  super.initState();
+  _webSocketClient = WebSocketClient();
+  _webSocketClient.connect(); // Lance la connexion WebSocket
+}
+@override
+void dispose() {
+  _webSocketClient.socket?.close(); // Utilisez le getter 'socket' pour accéder à _socket
+  super.dispose();
+}
 
   void rollDice() {
   if (!moveUsed && diceRolled) {
@@ -52,16 +58,16 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   setState(() {
-    // Lancer les dés en générant des valeurs aléatoires entre 1 et 6
+   
     final random = Random();
     de1 = random.nextInt(6) + 1;
     de2 = random.nextInt(6) + 1;
-    diceRolled = true; // Dés ont été lancés
-    moveUsed = false;  // Réinitialiser le statut du mouvement après le lancer
+    diceRolled = true; 
+    moveUsed = false; 
   });
 }
 void endGame() {
-  // Vérifie d'abord que la liste n'est pas vide
+ 
   if (players.isNotEmpty) {
     players[0].score = score;
     players[1].score = score ~/ 2;
@@ -69,7 +75,7 @@ void endGame() {
     print("Erreur : liste de joueurs vide.");
   }
 
-  // Vérifie les scores avant la navigation
+ 
   print("Score Joueur 1: ${players.isNotEmpty ? players[0].score : 'Pas de joueur'}");
   print("Score Joueur 2: ${players.length > 1 ? players[1].score : 'Pas de joueur'}");
 
@@ -82,7 +88,7 @@ void endGame() {
 
 
  void onCircleTap(int index) async {
-  // Vérifier si les dés ont été lancés
+ 
   if (!diceRolled) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Veuillez lancer les dés avant de jouer !'))
@@ -90,20 +96,17 @@ void endGame() {
     return;
   }
 
-  // Si le premier coup est libre, permettre la sélection d'une case sans vérification
   if (isFirstMove) {
-    isFirstMove = false; // Désactiver cette condition pour les prochains tours
+    isFirstMove = false;
   } else {
-    // Vérifier si la case sélectionnée est adjacente à une autre case remplie
-    if (!AdjacencyChecker.isAdjacent(board, index)) {
+     if (!AdjacencyChecker.isAdjacent(board, index)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Vous devez choisir une case adjacente !'))
       );
       return;
     }
 
-    // Vérifier que l'utilisateur n'a pas déjà utilisé son mouvement
-    if (moveUsed) {
+   if (moveUsed) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Vous ne pouvez jouer qu\'une seule case par lancer de dés !'))
       );
@@ -111,15 +114,14 @@ void endGame() {
     }
   }
 
-  // Gérer le cas où de1 et de2 sont tous deux 0, permettant ainsi un "coup zéro"
   if (de1 == 0 && de2 == 0) {
-    board[index] = 0; // Remplir la case avec un 0
+    board[index] = 0; 
     diceRolled = false;
-    setState(() {}); // Mettre à jour l'interface
+    setState(() {});
     return;
   }
 
-  // Afficher une boîte de dialogue pour choisir l’opération
+ 
   final result = await showDialog<int>(
     context: context,
     builder: (BuildContext context) {
@@ -211,12 +213,11 @@ void endGame() {
     },
   );
 
-  // Mettre à jour la case sélectionnée avec le résultat de l’opération choisie
-  if (result != null) {
+if (result != null) {
     setState(() {
       board[index] = result;
-      diceRolled = false;  // Désactiver les dés pour éviter un autre coup sans relancer
-      moveUsed = true;     // Empêcher un autre coup jusqu'à ce que les dés soient relancés
+      diceRolled = false;  
+      moveUsed = true;     
      calculateScore();});
   }
 }
@@ -248,17 +249,15 @@ int calculateZones() {
 
   for (int i = 0; i < board.length; i++) {
     if (board[i] != null && !zonesVisited[i]) {
-      // Obtenir la zone connectée pour cette case
+      
       List<int> zone = getConnectedValues(i, board[i]!, zonesVisited);
 
       if (zone.length > 1) {
-        // Marquer la zone comme valide uniquement si elle a plus d'une case
         int zoneValue = board[i]!;
         int scoreZone = zoneValue + (zone.length - 1);
         zoneScore += scoreZone;
         print('Zone trouvée avec valeur $zoneValue et taille ${zone.length} - Score de cette zone: $scoreZone');
       } else {
-        // Si la zone est une case seule, la démarquer pour qu'elle puisse être comptée comme orpheline
         zonesVisited[i] = false;
       }
     }
@@ -288,7 +287,7 @@ List<int> getConnectedValues(int index, int value, List<bool> zonesVisited) {
   final rows = 4;
   final cols = 4;
   final List<int> zone = [];
-  final List<int> directions = [-1, 1, -cols, cols]; // Gauche, Droite, Haut, Bas
+  final List<int> directions = [-1, 1, -cols, cols]; 
 
   final queue = [index];
   while (queue.isNotEmpty) {
@@ -322,7 +321,6 @@ int calculateSeries() {
         seriesScore += scoreSeries;
         print('Série trouvée avec valeur max $seriesValue et taille ${series.length} - Score de cette série: $scoreSeries');
       } else {
-        // Si la série a une seule case, la marquer comme non visitée pour la rendre éligible en tant qu'orpheline
         series.forEach((idx) => seriesVisited[idx] = false);
       }
     }
@@ -341,9 +339,9 @@ List<int> getSeries(int index, List<bool> seriesVisited) {
   final int rows = 4;
   final int cols = 4;
   final List<int> series = [];
-  final List<int> directions = [-1, 1, -cols, cols]; // Left, Right, Up, Down
-  int currentValue = board[index]!;  // Get the initial tile value
-  final queue = [index];  // Start from the given index
+  final List<int> directions = [-1, 1, -cols, cols]; 
+  int currentValue = board[index]!;  
+  final queue = [index];  
 
   while (queue.isNotEmpty) {
     int current = queue.removeLast();
@@ -400,8 +398,7 @@ bool isSingleTileSeries(int index) {
   List<bool> tempVisited = List.from(seriesVisited);
   int seriesScore = getSeriesScore(index, tempVisited);
   
-  // Vérifie si la valeur de la case est sous le score de la série
-  if (board[index]! <= seriesScore) {
+ if (board[index]! <= seriesScore) {
     print('Case $index - Est seule dans la série ? false (fait partie d\'une série avec score $seriesScore)');
     return false;
   }
@@ -412,7 +409,7 @@ bool isSingleTileSeries(int index) {
 int getSeriesScore(int index, List<bool> seriesVisited) {
   final series = getSeries(index, seriesVisited);
   int seriesMaxValue = series.map((i) => board[i]!).reduce((a, b) => a > b ? a : b);
-  return seriesMaxValue + series.length - 1;  // Calcul du score basé sur la valeur max et la taille de la série
+  return seriesMaxValue + series.length - 1;  
 }
 
 
@@ -423,7 +420,7 @@ int getSeriesScore(int index, List<bool> seriesVisited) {
 
 
 
-// Determine if the tile is a single tile in a zone
+
 bool isSingleTileZone(int index) {
   List<bool> tempVisited = List.from(zonesVisited);
   List<int> zone = getConnectedValues(index, board[index]!, tempVisited);
@@ -434,7 +431,7 @@ bool isSingleTileZone(int index) {
 
   @override
   Widget build(BuildContext context) {
-    // Récupérer le code de salle depuis les arguments
+    
     final String roomCode = ModalRoute.of(context)?.settings.arguments as String? ?? 'Sans Code';
 
     return Scaffold(
@@ -445,7 +442,7 @@ bool isSingleTileZone(int index) {
         children: [
           SizedBox(height: 10),
              Text(
-            'Score actuel : $score', // Affichage du score
+            'Score actuel : $score', 
             style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
           SizedBox(height: 10),
@@ -459,6 +456,19 @@ bool isSingleTileZone(int index) {
             de2: de2,
             onRoll: rollDice,
           ),
+
+ SizedBox(height: 20),
+          ElevatedButton(
+            onPressed: () {
+              if (isCreator) {
+                _webSocketClient.rollDice(roomCode);
+              } else {
+                print('Seul le créateur peut lancer les dés.');
+              }
+            },
+            child: Text('Lancer les dés'),
+          ),
+
           Expanded(
             child: Padding(
               padding: const EdgeInsets.all(20.0),
@@ -472,9 +482,9 @@ bool isSingleTileZone(int index) {
   padding: const EdgeInsets.all(10.0),
   child: ElevatedButton(
   onPressed: playerCount == 2 ? () {
-    // Mettre à jour les scores avant de naviguer
-    players[0].score = calculateScore(); // ou score calculé pour Joueur 1
-    players[1].score = score ~/ 2;       // ou un autre calcul pour Joueur 2
+ 
+    players[0].score = calculateScore();
+    players[1].score = score ~/ 2;       
     
     Navigator.pushNamed(
       context,
@@ -497,20 +507,20 @@ bool isSingleTileZone(int index) {
   }
 }
 
-// Classe pour vérifier l'adjacence
+
 class AdjacencyChecker {
   static bool isAdjacent(List<int?> board, int index) {
     final rows = 4;
     final cols = 4;
 
     List<int> adjacentPositions = [
-      index - 1,   // Gauche
-      index + 1,   // Droite
-      index - cols, // Haut
-      index + cols  // Bas
+      index - 1,   
+      index + 1,   
+      index - cols, 
+      index + cols  
     ];
 
-    // Vérifie si une position adjacente est déjà occupée
+   
     return adjacentPositions.any((pos) {
       bool inBounds = pos >= 0 && pos < board.length;
       bool sameRow = (pos ~/ cols) == (index ~/ cols);
